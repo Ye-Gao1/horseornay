@@ -17,11 +17,67 @@ if not os.path.exists('uploads'):
     os.makedirs('uploads')
 
 try:
-    model = load_model('models/horseornot.h5')
+    import tensorflow as tf
+    from tensorflow.keras.models import load_model
+    from tensorflow.keras.layers import InputLayer
+    
+    # Create a comprehensive custom InputLayer class
+    class CompatibleInputLayer(InputLayer):
+        def __init__(self, input_shape=None, batch_shape=None, data_format=None, dtype=None, ragged=None, sparse=None, **kwargs):
+            # Convert batch_shape to input_shape if needed
+            if batch_shape is not None:
+                input_shape = batch_shape[1:] if len(batch_shape) > 1 else None
+            
+            # Only pass supported parameters to parent class
+            super().__init__(input_shape=input_shape, **kwargs)
+    
+    # Set up custom objects for compatibility
+    custom_objects = {
+        'InputLayer': CompatibleInputLayer
+    }
+    
+    model = load_model('models/horsev2.h5', custom_objects=custom_objects, compile=False)
+    # Recompile the model to ensure it works with current TensorFlow version
+    model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
     print("Model loaded successfully!")
 except Exception as e:
-    print(f"Error: {e}")
-    model = None
+    print(f"Error loading model: {e}")
+    try:
+        # Alternative loading method - try loading without custom objects first
+        model = load_model('models/horsev2.h5', compile=False)
+        model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+        print("Model loaded with simple method!")
+    except Exception as e2:
+        print(f"Simple loading failed: {e2}")
+        try:
+            # Last resort - try with minimal custom objects
+            import tensorflow.keras.layers as layers
+            
+            def minimal_input_layer(**kwargs):
+                # Only keep essential parameters
+                essential_params = {}
+                if 'input_shape' in kwargs:
+                    essential_params['input_shape'] = kwargs['input_shape']
+                elif 'batch_shape' in kwargs:
+                    batch_shape = kwargs['batch_shape']
+                    if batch_shape and len(batch_shape) > 1:
+                        essential_params['input_shape'] = batch_shape[1:]
+                
+                if 'name' in kwargs:
+                    essential_params['name'] = kwargs['name']
+                
+                return layers.InputLayer(**essential_params)
+            
+            custom_objects = {
+                'InputLayer': minimal_input_layer
+            }
+            
+            model = load_model('models/horsev2.h5', custom_objects=custom_objects, compile=False)
+            model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+            print("Model loaded with minimal custom objects!")
+        except Exception as e3:
+            print(f"All loading methods failed: {e3}")
+            model = None
 
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'bmp'}
 

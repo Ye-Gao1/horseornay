@@ -1,0 +1,45 @@
+# Alternative Dockerfile using Python base image for better performance
+FROM python:3.9-slim
+
+# Set working directory
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    libgl1-mesa-glx \
+    libglib2.0-0 \
+    libsm6 \
+    libxext6 \
+    libxrender-dev \
+    libgomp1 \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create a non-root user
+RUN groupadd -r appuser && useradd -r -g appuser appuser
+
+# Create virtual environment
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Copy and install requirements
+COPY requirements.txt .
+RUN pip install --upgrade pip --no-warn-script-location
+RUN pip install -r requirements.txt --no-warn-script-location
+
+# Copy application
+COPY . .
+
+# Create directories and set proper permissions
+RUN mkdir -p uploads models templates static && \
+    chown -R appuser:appuser /app && \
+    chmod -R 755 /app
+
+# Switch to non-root user
+USER appuser
+
+# Expose port
+EXPOSE 5000
+
+# Run the application with gunicorn for production
+CMD ["gunicorn", "--config", "gunicorn.conf.py", "app:app"]

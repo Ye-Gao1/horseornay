@@ -27,9 +27,9 @@ proc_name = "horse_detector"
 
 # Server mechanics
 daemon = False
-pidfile = "/tmp/gunicorn.pid"
-user = None
-group = None
+pidfile = None  # Disable pidfile to avoid permission issues
+user = None  # Let Docker handle user switching
+group = None  # Let Docker handle group switching
 tmp_upload_dir = None
 
 # SSL (if needed)
